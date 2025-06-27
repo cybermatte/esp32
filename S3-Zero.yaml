@@ -1,0 +1,37 @@
+esphome:
+  name: esp32-s3-zero-m-01
+  friendly_name: ESP32-S3-Zero-M-01
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+button:
+  - platform: restart
+    name: "Restart device"
+  - platform: factory_reset
+    name: "Factory reset"
+    disabled_by_default: True
+
+bluetooth_proxy:
+  active: true
+
+i2c:
+  sda: GPIO1
+  scl: GPIO2
+  scan: true
+
+sensor:
+  - platform: scd4x
+    co2:
+      name: "CO2"
+    temperature:
+      name: "Temperature"
+      accuracy_decimals: 2
+    humidity:
+      name: "Humidity"
+      accuracy_decimals: 2
+    address: 0x62
+    update_interval: 60s
+
