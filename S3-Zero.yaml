@@ -28,21 +28,91 @@ button:
 bluetooth_proxy:
   active: true
 
+# 1. Define a global variable to store the sensor's enabled/disabled state
+#    This variable will persist across reboots.
+globals:
+  - id: sensor_enabled
+    type: bool
+    restore_value: yes # Make it persist across reboots
+    initial_value: "false" # Default state: sensor is off on first boot
+
+# 2. Create a template switch that controls the sensor's "enabled" state
+#    This switch WILL be exposed to Home Assistant.
+switch:
+  - platform: template
+    name: "Environmental Sensors Enable" # This will show up in Home Assistant
+    id: enable_environmental_sensors_switch
+    restore_mode: RESTORE_DEFAULT_OFF # Or RESTORE_DEFAULT_ON for persistence
+    optimistic: true
+
+    on_turn_on:
+      - lambda: |-
+          id(sensor_enabled) = true;
+          ESP_LOGI("main", "Environmental sensors ENABLED!");
+          // Trigger immediate updates for all SCD4x sensors when enabled
+          // This ensures Home Assistant gets a reading right after the switch is turned on.
+          id(co2_sensor_id).update();
+          id(temperature_sensor_id).update();
+          id(humidity_sensor_id).update();
+    on_turn_off:
+      - lambda: |-
+          id(sensor_enabled) = false;
+          ESP_LOGI("main", "Environmental sensors DISABLED!");
+
+
 i2c:
   sda: GPIO1
   scl: GPIO2
   scan: true
+  id: scd4x_i2c_bus # Give it an ID if you have multiple I2C devices or buses
 
+# 3. Configure your SCD4x sensor
 sensor:
   - platform: scd4x
-    co2:
-      name: "CO2"
-    temperature:
-      name: "Temperature"
-      accuracy_decimals: 2
-    humidity:
-      name: "Humidity"
-      accuracy_decimals: 2
+    id: scd4x_platform # An ID for the entire SCD4x component
+    i2c_id: scd4x_i2c_bus # Link to your defined I2C bus
     address: 0x62
-    update_interval: 60s
+    update_interval: 60s # The SCD4x will perform measurements every 60 seconds
+                         # but the data will only be published to HA when enabled.
 
+    co2:
+      name: "CO2" # Changed name slightly for clarity, feel free to use "CO2"
+      id: co2_sensor_id
+      accuracy_decimals: 0 # CO2 is usually integer ppm
+      on_value:
+        # Only publish the value if the 'sensor_enabled' global variable is true
+        - if:
+            condition:
+              lambda: 'return id(sensor_enabled);'
+            then:
+              - logger.log:
+                  format: "CO2 reading: %.0f ppm"
+                  args: ["x"]
+
+    temperature:
+      name: "Temperature" # Changed name slightly for clarity
+      id: temperature_sensor_id
+      accuracy_decimals: 2
+      on_value:
+        # Only publish the value if the 'sensor_enabled' global variable is true
+        - if:
+            condition:
+              lambda: 'return id(sensor_enabled);'
+            then:
+              - logger.log:
+                  format: "SCD4x Temperature reading: %.2f °C"
+                  args: ["x"]
+
+    humidity:
+      name: "Humidity" # Changed name slightly for clarity
+      id: humidity_sensor_id
+      accuracy_decimals: 2
+      on_value:
+        # Only publish the value if the 'sensor_enabled' global variable is true
+        - if:
+            condition:
+              lambda: 'return id(sensor_enabled);'
+            then:
+              - logger.log:
+                  format: "SCD4x Humidity reading: %.2f %%"
+                  args: ["x"]
