@@ -48,7 +48,7 @@ switch:
           ESP_LOGI("main", "Environmental sensors ENABLED!");
           // Trigger immediate updates for all SCD4x sensors when enabled
           // Call update() on the parent SCD4x platform ID
-          id(scd4x_platform).update(); # <--- THIS IS THE FIX
+          id(scd4x_platform).update(); 
     on_turn_off:
       - lambda: |-
           id(sensor_enabled) = false;
