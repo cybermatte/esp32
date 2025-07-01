@@ -1,8 +1,7 @@
 esphome:
-  name: esp32-s3-zero-m-
-  friendly_name: ESP32-S3-Zero-
+  name: ${name}
+  friendly_name: ${friendly_name}
   min_version: 2025.5.0
-  name_add_mac_suffix: true
 
 esp32:
   board: esp32-s3-devkitc-1
