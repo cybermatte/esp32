@@ -46,8 +46,6 @@ switch:
       - lambda: |-
           id(sensor_enabled) = true;
           ESP_LOGI("main", "Environmental sensors ENABLED!");
-          // Trigger immediate updates for all SCD4x sensors when enabled
-          // This ensures Home Assistant gets a reading right after the switch is turned on.
           id(co2_sensor_id).update();
           id(temperature_sensor_id).update();
           id(humidity_sensor_id).update();
