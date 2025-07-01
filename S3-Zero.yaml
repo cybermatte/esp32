@@ -42,7 +42,7 @@ switch:
   - platform: template
     name: "Environmental Sensors Enable" # This will show up in Home Assistant
     id: enable_environmental_sensors_switch
-    restore_mode: RESTORE_DEFAULT_OFF # Or RESTORE_DEFAULT_ON for persistence
+    restore_mode: RESTORE_DEFAULT_ON # Or RESTORE_DEFAULT_ON for persistence
     optimistic: true
 
     on_turn_on:
