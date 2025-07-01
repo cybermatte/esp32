@@ -42,18 +42,17 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON # Or RESTORE_DEFAULT_ON for persistence
     optimistic: true
 
-    on_turn_on:
+on_turn_on:
       - lambda: |-
           id(sensor_enabled) = true;
           ESP_LOGI("main", "Environmental sensors ENABLED!");
-          id(co2_sensor_id).update();
-          id(temperature_sensor_id).update();
-          id(humidity_sensor_id).update();
+          // Trigger immediate updates for all SCD4x sensors when enabled
+          // Call update() on the parent SCD4x platform ID
+          id(scd4x_platform).update(); # <--- THIS IS THE FIX
     on_turn_off:
       - lambda: |-
           id(sensor_enabled) = false;
           ESP_LOGI("main", "Environmental sensors DISABLED!");
-
 
 i2c:
   sda: GPIO1
