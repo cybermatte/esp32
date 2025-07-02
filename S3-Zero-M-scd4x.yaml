@@ -1,0 +1,114 @@
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2025.5.0
+  name_add_mac_suffix: false
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 1100ms
+    window: 1100ms
+    active: true
+
+button:
+  - platform: restart
+    name: "Restart device"
+  - platform: factory_reset
+    name: "Factory reset"
+    disabled_by_default: True
+
+bluetooth_proxy:
+  active: true
+
+# 1. Define a global variable to store the sensor's enabled/disabled state
+#    This variable will persist across reboots.
+globals:
+  - id: sensor_scd4x # Using your new ID
+    type: bool
+    restore_value: yes # Make it persist across reboots
+    initial_value: "false" # Default state: sensor is off on first boot
+
+# 2. Create a template switch that controls the sensor's "enabled" state
+#    This switch WILL be exposed to Home Assistant.
+switch:
+  - platform: template
+    name: "Enable SCD4x Sensors" # Using your new name
+    id: enable_scd4x_switch # Using your new ID (corrected from scd41_switch for consistency)
+    # Changed to RESTORE_DEFAULT_OFF for consistency with globals.initial_value: "false"
+    restore_mode: RESTORE_DEFAULT_OFF
+    optimistic: true
+    on_turn_on:
+      - lambda: |-
+          id(sensor_scd4x) = true;
+          ESP_LOGI("main", "SCD4x Sensors ENABLED!");
+          id(scd4x_platform).update();
+    on_turn_off:
+      - lambda: |-
+          id(sensor_scd4x) = false;
+          ESP_LOGI("main", "SCD4x Sensors DISABLED!");
+          // When disabled, explicitly publish NAN to make sensors unavailable in HA
+          id(co2_sensor_id).publish_state(NAN);
+          id(temperature_sensor_id).publish_state(NAN);
+          id(humidity_sensor_id).publish_state(NAN);
+
+# I2C Bus Configuration (for SCD4x)
+i2c:
+  sda: GPIO1
+  scl: GPIO2
+  scan: true
+  id: scd4x_i2c_bus
+
+# 3. Configure your SCD4x sensor
+sensor:
+- platform: scd4x
+    id: scd4x_platform
+    i2c_id: scd4x_i2c_bus
+    address: 0x62
+    update_interval: 60s # The SCD4x will perform measurements every 60 seconds internally
+
+    co2:
+      name: "CO2"
+      id: co2_sensor_id
+      accuracy_decimals: 0
+      on_value:
+        - lambda: |-
+            if (id(sensor_scd4x)) {
+              id(co2_sensor_id).publish_state(x); // <--- PUBLISH STATE WHEN ENABLED
+              ESP_LOGI("CO2_Sensor", "CO2 reading: %.0f ppm", x);
+            } else {
+              // No need to publish NAN here, it's done in on_turn_off
+              ESP_LOGD("CO2_Sensor", "CO2 sensor disabled, not publishing.");
+            }
+
+    temperature:
+      name: "Temperature"
+      id: temperature_sensor_id
+      accuracy_decimals: 2
+      on_value:
+        - lambda: |-
+            if (id(sensor_scd4x)) {
+              id(temperature_sensor_id).publish_state(x); // <--- PUBLISH STATE WHEN ENABLED
+              ESP_LOGI("Temp_Sensor", "Temperature reading: %.2f °C", x);
+            } else {
+              // No need to publish NAN here, it's done in on_turn_off
+              ESP_LOGD("Temp_Sensor", "Temperature sensor disabled, not publishing.");
+            }
+
+    humidity:
+      name: "Humidity"
+      id: humidity_sensor_id
+      accuracy_decimals: 2
+      on_value:
+        - lambda: |-
+            if (id(sensor_scd4x)) {
+              id(humidity_sensor_id).publish_state(x); // <--- PUBLISH STATE WHEN ENABLED
+              ESP_LOGI("Hum_Sensor", "Humidity reading: %.2f %%", x);
+            } else {
+              // No need to publish NAN here, it's done in on_turn_off
+              ESP_LOGD("Hum_Sensor", "Humidity sensor disabled, not publishing.");
+            }
