@@ -37,7 +37,7 @@ globals:
 #    This switch WILL be exposed to Home Assistant.
 switch:
   - platform: template
-    name: "Environmental Sensors Enable" # This will show up in Home Assistant
+    name: "Enable scd4x" # This will show up in Home Assistant
     id: enable_environmental_sensors_switch
     restore_mode: RESTORE_DEFAULT_ON # Or RESTORE_DEFAULT_ON for persistence
     optimistic: true
