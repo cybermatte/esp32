@@ -28,7 +28,7 @@ bluetooth_proxy:
 # 1. Define a global variable to store the sensor's enabled/disabled state
 #    This variable will persist across reboots.
 globals:
-  - id: sensor_enabled
+  - id: sensor_scd4x
     type: bool
     restore_value: yes # Make it persist across reboots
     initial_value: "false" # Default state: sensor is off on first boot
@@ -38,19 +38,19 @@ globals:
 switch:
   - platform: template
     name: "Enable scd4x" # This will show up in Home Assistant
-    id: enable_environmental_sensors_switch
+    id: enable_scd41_switch
     restore_mode: RESTORE_DEFAULT_ON # Or RESTORE_DEFAULT_ON for persistence
     optimistic: true
     on_turn_on:
       - lambda: |-
-          id(sensor_enabled) = true;
+          id(sensor_scd4x) = true;
           ESP_LOGI("main", "Environmental sensors ENABLED!");
           // Trigger immediate updates for all SCD4x sensors when enabled
           // Call update() on the parent SCD4x platform ID
           id(scd4x_platform).update();
     on_turn_off:
       - lambda: |-
-          id(sensor_enabled) = false;
+          id(sensor_scd4x) = false;
           ESP_LOGI("main", "Environmental sensors DISABLED!");
 
 i2c:
@@ -73,10 +73,10 @@ sensor:
       id: co2_sensor_id
       accuracy_decimals: 0 # CO2 is usually integer ppm
       on_value:
-        # Only publish the value if the 'sensor_enabled' global variable is true
+        # Only publish the value if the 'sensor_scd4x' global variable is true
         - if:
             condition:
-              lambda: 'return id(sensor_enabled);'
+              lambda: 'return id(sensor_scd4x);'
             then:
               - logger.log:
                   format: "CO2 reading: %.0f ppm"
@@ -87,10 +87,10 @@ sensor:
       id: temperature_sensor_id
       accuracy_decimals: 2
       on_value:
-        # Only publish the value if the 'sensor_enabled' global variable is true
+        # Only publish the value if the 'sensor_scd4x' global variable is true
         - if:
             condition:
-              lambda: 'return id(sensor_enabled);'
+              lambda: 'return id(sensor_scd4x);'
             then:
               - logger.log:
                   format: "SCD4x Temperature reading: %.2f °C"
@@ -101,10 +101,10 @@ sensor:
       id: humidity_sensor_id
       accuracy_decimals: 2
       on_value:
-        # Only publish the value if the 'sensor_enabled' global variable is true
+        # Only publish the value if the 'sensor_scd4x' global variable is true
         - if:
             condition:
-              lambda: 'return id(sensor_enabled);'
+              lambda: 'return id(sensor_scd4x);'
             then:
               - logger.log:
                   format: "SCD4x Humidity reading: %.2f %%"
