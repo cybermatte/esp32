@@ -40,7 +40,7 @@ switch:
     name: "Enable SCD4x Sensors" # Using your new name
     id: enable_scd4x_switch # Using your new ID (corrected from scd41_switch for consistency)
     # Changed to RESTORE_DEFAULT_OFF for consistency with globals.initial_value: "false"
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
     on_turn_on:
       - lambda: |-
