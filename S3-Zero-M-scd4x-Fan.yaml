@@ -56,7 +56,7 @@ sensor:
 output:
   # PWM output for speed control (connected to L298N ENA pin)
   - platform: ledc
-    pin: GPIO5 # <--- Ensure this is your L298N ENA pin
+    pin: GPIO5 # - Ensure this is your L298N ENA pin
     id: motor_pwm_pin
     frequency: 1000 Hz # Common for motors, adjust if fan hums too much or needs higher/lower freq
     # For ENA, you typically want max_power: 1.0 (100%) so the hbridge fan can control it.
@@ -66,14 +66,14 @@ output:
   # Direction control pins (connected to L298N IN1 and IN2 pins)
   # These also need to be LEDC (PWM) outputs for the hbridge platform,
   # even though they might only be driven HIGH/LOW internally by the hbridge component.
-  - platform: ledc # <<<< CHANGED TO LEDC
-    pin: GPIO3 # <--- Ensure this is your L298N IN1 pin (Pin A)
+  - platform: ledc #  CHANGED TO LEDC
+    pin: GPIO3 # - Ensure this is your L298N IN1 pin (Pin A)
     id: motor_in1_pin
     frequency: 1000 Hz # Must match the frequency of the enable_pin if used in same channel group (good practice)
     max_power: 1.0 # These will be driven as 0% or 100% by the hbridge component
 
-  - platform: ledc # <<<< CHANGED TO LEDC
-    pin: GPIO4 # <--- Ensure this is your L298N IN2 pin (Pin B)
+  - platform: ledc #  CHANGED TO LEDC
+    pin: GPIO4 # - Ensure this is your L298N IN2 pin (Pin B)
     id: motor_in2_pin
     frequency: 1000 Hz # Must match the frequency of the enable_pin
     max_power: 1.0 # These will be driven as 0% or 100% by the hbridge component
@@ -103,9 +103,9 @@ text_sensor:
   - platform: template
     name: "Fan Status Debug"
     lambda: |-
-      if (id(reversible_fan).state == fan::FAN_ON) {
-        return "On - Speed: " + to_string(id(reversible_fan).speed * 100.0F) + "%";
+      // Check if the fan's speed is greater than 0.0 (i.e., it's "on")
+      if (id(reversible_fan).speed > 0.0F) {  return "On - Speed: " + to_string(id(reversible_fan).speed * 100.0F) + "%";
       } else {
-        return "Off";
+        return std::string("Off"); 
       }
     update_interval: 1s
