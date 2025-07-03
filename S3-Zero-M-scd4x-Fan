@@ -1,0 +1,139 @@
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2025.5.0
+  name_add_mac_suffix: false
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 1100ms
+    window: 1100ms
+    active: true
+
+button:
+  - platform: restart
+    name: "Restart device"
+  - platform: factory_reset
+    name: "Factory reset"
+    disabled_by_default: True
+
+bluetooth_proxy:
+  active: true
+
+# I2C Bus Configuration (for SCD4x)
+i2c:
+  sda: GPIO1
+  scl: GPIO2
+  scan: true
+  id: scd4x_i2c_bus
+
+# 3. Configure your SCD4x sensor
+sensor:
+  - platform: scd4x
+    id: scd4x_platform
+    i2c_id: scd4x_i2c_bus
+    address: 0x62
+    update_interval: 10s # The SCD4x will perform measurements every 60 seconds internally
+
+    co2:
+      name: "CO2"
+      id: co2_sensor_id
+      accuracy_decimals: 0
+
+    temperature:
+      name: "Temperature"
+      id: temperature_sensor_id
+      accuracy_decimals: 2
+
+    humidity:
+      name: "Humidity"
+      id: humidity_sensor_id
+      accuracy_decimals: 2
+
+# -----------------------------------------------------------
+# L298N Control Pin Definitions (Connected to ESP32-S3)
+# These are the GPIOs that control the L298N module.
+# -----------------------------------------------------------
+output:
+  # Digital output for L298N IN1 (part of direction control)
+  - platform: gpio
+    pin: GPIO3 # Connects to L298N IN1
+    id: motor_in1_pin
+
+  # Digital output for L298N IN2 (part of direction control)
+  - platform: gpio
+    pin: GPIO4 # Connects to L298N IN2
+    id: motor_in2_pin
+
+  # PWM output for L298N ENA (speed control)
+  - platform: ledc # LEDC is ESP32's hardware PWM controller
+    pin: GPIO5 # Connects to L298N ENA
+    id: motor_pwm_pin
+    frequency: 5000 Hz # Common frequency for DC motor PWM
+    # The 'max_power' is handled by the motor component's speed mapping (0.0 to 1.0)
+
+# -----------------------------------------------------------
+# Motor Component - Defines how the L298N controls the fan
+# -----------------------------------------------------------
+motor:
+  - id: reversible_fan_motor
+    output: motor_pwm_pin      # The PWM output for speed
+    forward_pin: motor_in1_pin # Pin for one direction
+    backward_pin: motor_in2_pin # Pin for the reverse direction
+    # A small delay to allow the motor to stop/settle before changing direction.
+    # Prevents sudden jolts and potential issues with the driver or fan.
+    sleep_duration: 100ms # 100 milliseconds
+
+# -----------------------------------------------------------
+# Fan Component - Integrates with Home Assistant as a Fan entity
+# -----------------------------------------------------------
+fan:
+  - platform: motor
+    motor_id: reversible_fan_motor # Link to the motor defined above
+    name: "Reversible Workshop Fan" # Name as it will appear in Home Assistant
+    id: workshop_fan_entity # Unique ID for this fan entity in ESPHome
+
+    # Define speed presets. Adjust names and number as desired.
+    speed:
+      - OFF
+      - LOW
+      - MEDIUM
+      - HIGH
+
+    # Map speed presets to PWM values (0.0 = 0% PWM, 1.0 = 100% PWM)
+    # Adjust these values (0.3, 0.6, 1.0) to achieve desired fan speeds.
+    speed_presets:
+      off: 0.0
+      low: 0.3    # ~30% power
+      medium: 0.6 # ~60% power
+      high: 1.0   # 100% power
+
+    # Enable direction control in Home Assistant
+    direction: true
+    # Optionally, you can set a default direction on boot:
+    # default_direction: FORWARD # or BACKWARD
+
+# -----------------------------------------------------------
+# Text Sensor (Optional) - For debugging or displaying current fan state
+# -----------------------------------------------------------
+text_sensor:
+  - platform: template
+    name: "Fan Status"
+    lambda: |-
+      // Check if the fan is currently on
+      if (id(workshop_fan_entity).state == fan::FAN_ON) {
+        // Check current direction and report speed percentage
+        if (id(workshop_fan_entity).current_direction == fan::FAN_DIRECTION_FORWARD) {
+          return "Forward - " + to_string(id(workshop_fan_entity).speed * 100.0F) + "%";
+        } else {
+          return "Reverse - " + to_string(id(workshop_fan_entity).speed * 100.0F) + "%";
+        }
+      } else {
+        return "Off"; // Fan is off
+      }
+    update_interval: 1s # Update every second
