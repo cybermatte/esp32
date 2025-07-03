@@ -1,9 +1,3 @@
-esphome:
-  name: ${name}
-  friendly_name: ${friendly_name}
-  min_version: 2025.5.0
-  name_add_mac_suffix: false
-
 esp32:
   board: esp32-s3-devkitc-1
   framework:
@@ -60,80 +54,58 @@ sensor:
 # These are the GPIOs that control the L298N module.
 # -----------------------------------------------------------
 output:
-  # Digital output for L298N IN1 (part of direction control)
-  - platform: gpio
-    pin: GPIO3 # Connects to L298N IN1
-    id: motor_in1_pin
-
-  # Digital output for L298N IN2 (part of direction control)
-  - platform: gpio
-    pin: GPIO4 # Connects to L298N IN2
-    id: motor_in2_pin
-
-  # PWM output for L298N ENA (speed control)
-  - platform: ledc # LEDC is ESP32's hardware PWM controller
-    pin: GPIO5 # Connects to L298N ENA
+  # PWM output for speed control (connected to L298N ENA pin)
+  - platform: ledc
+    pin: GPIO5 # <--- Ensure this is your L298N ENA pin
     id: motor_pwm_pin
-    frequency: 5000 Hz # Common frequency for DC motor PWM
-    # The 'max_power' is handled by the motor component's speed mapping (0.0 to 1.0)
+    frequency: 1000 Hz # Common for motors, adjust if fan hums too much or needs higher/lower freq
+    # For ENA, you typically want max_power: 1.0 (100%) so the hbridge fan can control it.
+    # The 'hbridge' fan component itself will set the actual PWM duty cycle on this pin.
+    max_power: 1.0 
+
+  # Direction control pins (connected to L298N IN1 and IN2 pins)
+  # These also need to be LEDC (PWM) outputs for the hbridge platform,
+  # even though they might only be driven HIGH/LOW internally by the hbridge component.
+  - platform: ledc # <<<< CHANGED TO LEDC
+    pin: GPIO3 # <--- Ensure this is your L298N IN1 pin (Pin A)
+    id: motor_in1_pin
+    frequency: 1000 Hz # Must match the frequency of the enable_pin if used in same channel group (good practice)
+    max_power: 1.0 # These will be driven as 0% or 100% by the hbridge component
+
+  - platform: ledc # <<<< CHANGED TO LEDC
+    pin: GPIO4 # <--- Ensure this is your L298N IN2 pin (Pin B)
+    id: motor_in2_pin
+    frequency: 1000 Hz # Must match the frequency of the enable_pin
+    max_power: 1.0 # These will be driven as 0% or 100% by the hbridge component
 
 # -----------------------------------------------------------
-# Motor Component - Defines how the L298N controls the fan
-# -----------------------------------------------------------
-motor:
-  - id: reversible_fan_motor
-    output: motor_pwm_pin      # The PWM output for speed
-    forward_pin: motor_in1_pin # Pin for one direction
-    backward_pin: motor_in2_pin # Pin for the reverse direction
-    # A small delay to allow the motor to stop/settle before changing direction.
-    # Prevents sudden jolts and potential issues with the driver or fan.
-    sleep_duration: 100ms # 100 milliseconds
-
-# -----------------------------------------------------------
-# Fan Component - Integrates with Home Assistant as a Fan entity
+# Fan Component - Uses the hbridge platform
 # -----------------------------------------------------------
 fan:
-  - platform: motor
-    motor_id: reversible_fan_motor # Link to the motor defined above
-    name: "Reversible Workshop Fan" # Name as it will appear in Home Assistant
-    id: workshop_fan_entity # Unique ID for this fan entity in ESPHome
+  - platform: hbridge
+    id: reversible_fan # Unique ID for your fan
+    name: "S3 Zero M Fan" # Name that will appear in Home Assistant
 
-    # Define speed presets. Adjust names and number as desired.
-    speed:
-      - OFF
-      - LOW
-      - MEDIUM
-      - HIGH
+    # Link to the output IDs defined above
+    pin_a: motor_in1_pin
+    pin_b: motor_in2_pin
+    enable_pin: motor_pwm_pin # Use the PWM output for speed control
 
-    # Map speed presets to PWM values (0.0 = 0% PWM, 1.0 = 100% PWM)
-    # Adjust these values (0.3, 0.6, 1.0) to achieve desired fan speeds.
-    speed_presets:
-      off: 0.0
-      low: 0.3    # ~30% power
-      medium: 0.6 # ~60% power
-      high: 1.0   # 100% power
-
-    # Enable direction control in Home Assistant
-    direction: true
-    # Optionally, you can set a default direction on boot:
-    # default_direction: FORWARD # or BACKWARD
+    decay_mode: slow # 'slow' (coasting) or 'fast' (braking) when changing speed or stopping
+    # speed_count: 100 # Optional: Defines number of speed steps (1-255 by default).
+                      # If uncommented, Home Assistant will show a slider with this many steps.
+                      # Otherwise, it defaults to 255 steps.
 
 # -----------------------------------------------------------
 # Text Sensor (Optional) - For debugging or displaying current fan state
 # -----------------------------------------------------------
 text_sensor:
   - platform: template
-    name: "Fan Status"
+    name: "Fan Status Debug"
     lambda: |-
-      // Check if the fan is currently on
-      if (id(workshop_fan_entity).state == fan::FAN_ON) {
-        // Check current direction and report speed percentage
-        if (id(workshop_fan_entity).current_direction == fan::FAN_DIRECTION_FORWARD) {
-          return "Forward - " + to_string(id(workshop_fan_entity).speed * 100.0F) + "%";
-        } else {
-          return "Reverse - " + to_string(id(workshop_fan_entity).speed * 100.0F) + "%";
-        }
+      if (id(reversible_fan).state == fan::FAN_ON) {
+        return "On - Speed: " + to_string(id(reversible_fan).speed * 100.0F) + "%";
       } else {
-        return "Off"; // Fan is off
+        return "Off";
       }
-    update_interval: 1s # Update every second
+    update_interval: 1s
