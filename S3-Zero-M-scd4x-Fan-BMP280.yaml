@@ -126,6 +126,7 @@ globals:
 fan:
   - platform: template
     name: "OD1238 Reversible Fan"
+    #https://orionfans.com/productFiles/datasheet/OD1238-REVERSIBLE.pdf
     id: reversible_fan
     #internal: true  # ✅ This hides the entity from Home Assistant
     speed_count: 100
