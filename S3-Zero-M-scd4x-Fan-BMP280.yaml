@@ -3,6 +3,20 @@ esp32:
   framework:
     type: esp-idf
 
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+
+  on_boot:
+    priority: 80
+    then:
+      - lambda: ESP_LOGD("boot", "Running on_boot automation.");
+      - fan.turn_on:
+          id: reversible_fan
+          speed: 50
+      - lambda: ESP_LOGD("boot", "Fan set to 45% speed (FORWARD direction).");
+
 esp32_ble_tracker:
   scan_parameters:
     interval: 1100ms
@@ -19,91 +33,151 @@ button:
 bluetooth_proxy:
   active: true
 
-# I2C Bus Configuration (for SCD4x)
+# -----------------------------------------------------------
+# I2C Bus Configurations (Combined into one block)
+# -----------------------------------------------------------
 i2c:
-  sda: GPIO1
-  scl: GPIO2
-  scan: true
-  id: scd4x_i2c_bus
+  # I2C Bus for BMP280
+  - id: bus_b
+    sda: GPIO9 # Connect BMP280 SDA to GPIO9
+    scl: GPIO10 # Connect BMP280 SCL to GPIO10
+    scan: true
 
-# 3. Configure your SCD4x sensor
+  # I2C Bus for SCD4x (Original Pins)
+  - id: scd4x_i2c_bus
+    sda: GPIO1 # Connect SCD4x SDA to GPIO1
+    scl: GPIO2 # Connect SCD4x SCL to GPIO2
+    scan: true
+
+
+# -----------------------------------------------------------
+# Sensors
+# -----------------------------------------------------------
 sensor:
+  # SCD4x CO2, Temperature, and Humidity Sensor
   - platform: scd4x
     id: scd4x_platform
     i2c_id: scd4x_i2c_bus
-    address: 0x62
-    update_interval: 10s # The SCD4x will perform measurements every 60 seconds internally
+    address: 0x62 # Default address for SCD4x
+    update_interval: 60s # The SCD4x will perform measurements every 60 seconds internally
 
     co2:
       name: "CO2"
       id: co2_sensor_id
       accuracy_decimals: 0
-
     temperature:
-      name: "Temperature"
+      name: "Temperature" 
       id: temperature_sensor_id
       accuracy_decimals: 2
-
+      unit_of_measurement: "°C"
     humidity:
-      name: "Humidity"
+      name: "Humidity" 
       id: humidity_sensor_id
       accuracy_decimals: 2
+      unit_of_measurement: "%"
+
+    # BMP280 Temperature, Pressure, and Humidity
+  - platform: bmp280_i2c # Changed from bmp280_i2c to BMP280_i2c
+    i2c_id: bus_b
+    address: 0x77 # Assuming 0x76 for BMP280, please verify this (could be 0x77)
+    update_interval: 60s
+    temperature:
+      name: "Fan Temperature" 
+      id: bmp280_temperature # ID name kept for consistency
+      accuracy_decimals: 2
+      oversampling: 16x
+      filters:
+        - exponential_moving_average:
+            alpha: 0.1
+            send_first_at: 1
+      unit_of_measurement: "°C"
+    pressure:
+      name: "Pressure" 
+      id: BMP280_pressure
+      oversampling: 16x
+      filters:
+        - exponential_moving_average:
+            alpha: 0.1
+            send_first_at: 1
+      unit_of_measurement: "hPa"
+
+  - platform: pulse_counter
+    pin: GPIO6  # Replace with the tachometer signal pin
+    name: "Fan RPM"
+    unit_of_measurement: "RPM"
+    update_interval: 5s
+    filters:
+      - multiply: 0.5  # If your fan outputs 2 pulses per revolution
 
 # -----------------------------------------------------------
 # PWM Output for Fan Speed and Direction Control
 # -----------------------------------------------------------
 output:
-  # PWM output for controlling fan speed and direction (connected to Fan's PWM_IN pin)
   - platform: ledc
-    pin: GPIO5 # <--- Ensure this is the ESP32 GPIO connected to the fan's PWM_IN pin
+    pin: GPIO5
     id: fan_pwm_output
-    frequency: 25000 Hz # Crucial: Set to 25kHz as per fan datasheet
-    # The actual duty cycle will be controlled by the fan component below
+    frequency: 25000 Hz
 
+globals:
+  - id: fan_speed
+    type: float
+    initial_value: '0.50'
 
-  # Direction control pins (connected to L298N IN1 and IN2 pins)
-  # These also need to be LEDC (PWM) outputs for the hbridge platform,
-  # even though they might only be driven HIGH/LOW internally by the hbridge component.
-  - platform: ledc #  CHANGED TO LEDC
-    pin: GPIO3 # - Ensure this is your L298N IN1 pin (Pin A)
-    id: motor_in1_pin
-    frequency: 1000 Hz # Must match the frequency of the enable_pin if used in same channel group (good practice)
-    max_power: 1.0 # These will be driven as 0% or 100% by the hbridge component
-
-  - platform: ledc #  CHANGED TO LEDC
-    pin: GPIO4 # - Ensure this is your L298N IN2 pin (Pin B)
-    id: motor_in2_pin
-    frequency: 1000 Hz # Must match the frequency of the enable_pin
-    max_power: 1.0 # These will be driven as 0% or 100% by the hbridge component
-
-# -----------------------------------------------------------
-# Fan Component - Uses the hbridge platform
-# -----------------------------------------------------------
 fan:
-  - platform: hbridge
-    id: reversible_fan # Unique ID for your fan
-    name: "S3 Zero M Fan" # Name that will appear in Home Assistant
+  - platform: template
+    name: "OD1238 Reversible Fan"
+    id: reversible_fan
+    #internal: true  # ✅ This hides the entity from Home Assistant
+    speed_count: 100
+    on_turn_on:
+      - logger.log: "Fan turned on"
+    on_turn_off:
+      - logger.log: "Fan turned off"
+    on_speed_set:
+      - lambda: |-
+          id(fan_speed) = x / 100.0;
+          if (id(fan_speed) < 0.5) {
+            ESP_LOGD("fan", "Direction: FORWARD");
+          } else {
+            ESP_LOGD("fan", "Direction: REVERSE");
+          }
+      - output.set_level:
+          id: fan_pwm_output
+          level: !lambda 'return id(fan_speed);'
 
-    # Link to the output IDs defined above
-    pin_a: motor_in1_pin
-    pin_b: motor_in2_pin
-    enable_pin: motor_pwm_pin # Use the PWM output for speed control
-
-    decay_mode: slow # 'slow' (coasting) or 'fast' (braking) when changing speed or stopping
-    # speed_count: 100 # Optional: Defines number of speed steps (1-255 by default).
-                      # If uncommented, Home Assistant will show a slider with this many steps.
-                      # Otherwise, it defaults to 255 steps.
-
-# -----------------------------------------------------------
-# Text Sensor (Optional) - For debugging or displaying current fan state
-# -----------------------------------------------------------
 text_sensor:
   - platform: template
-    name: "Fan Status Debug"
+    name: "Fan Direction"
     lambda: |-
-      // Check if the fan's speed is greater than 0.0 (i.e., it's "on")
-      if (id(reversible_fan).speed > 0.0F) {  return "On - Speed: " + to_string(id(reversible_fan).speed * 100.0F) + "%";
+      if (id(reversible_fan).speed < 0.5) {
+        return std::string("FORWARD");
       } else {
-        return std::string("Off"); 
+        return std::string("REVERSE");
       }
-    update_interval: 1s
+    update_interval: 5s
+
+select:
+  - platform: template
+    name: "Fan Direction Preset"
+    options:
+      - Forward
+      - Reverse
+      - Stop
+    initial_option: Stop
+    optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x == "Forward") {
+               auto call = id(reversible_fan).turn_on();
+               call.set_speed(45);
+               call.perform();
+             } else if (x == "Stop") {
+               auto call = id(reversible_fan).turn_on();
+               call.set_speed(50);
+               call.perform();
+             } else {
+               auto call = id(reversible_fan).turn_on();
+               call.set_speed(57);
+               call.perform();
+            }
