@@ -50,18 +50,16 @@ sensor:
       accuracy_decimals: 2
 
 # -----------------------------------------------------------
-# L298N Control Pin Definitions (Connected to ESP32-S3)
-# These are the GPIOs that control the L298N module.
+# PWM Output for Fan Speed and Direction Control
 # -----------------------------------------------------------
 output:
-  # PWM output for speed control (connected to L298N ENA pin)
+  # PWM output for controlling fan speed and direction (connected to Fan's PWM_IN pin)
   - platform: ledc
-    pin: GPIO5 # - Ensure this is your L298N ENA pin
-    id: motor_pwm_pin
-    frequency: 1000 Hz # Common for motors, adjust if fan hums too much or needs higher/lower freq
-    # For ENA, you typically want max_power: 1.0 (100%) so the hbridge fan can control it.
-    # The 'hbridge' fan component itself will set the actual PWM duty cycle on this pin.
-    max_power: 1.0 
+    pin: GPIO5 # <--- Ensure this is the ESP32 GPIO connected to the fan's PWM_IN pin
+    id: fan_pwm_output
+    frequency: 25000 Hz # Crucial: Set to 25kHz as per fan datasheet
+    # The actual duty cycle will be controlled by the fan component below
+
 
   # Direction control pins (connected to L298N IN1 and IN2 pins)
   # These also need to be LEDC (PWM) outputs for the hbridge platform,
