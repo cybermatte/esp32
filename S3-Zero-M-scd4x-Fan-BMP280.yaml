@@ -53,6 +53,16 @@ i2c:
 # -----------------------------------------------------------
 # Sensors
 # -----------------------------------------------------------
+binary_sensor:
+  - platform: gpio
+    pin: GPIO7  # Välj rätt GPIO beroende på din ESP-modell
+    name: "Door sensor"
+    device_class: door  # Eller 'window', beroende på användning
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
+    internal: false
+
 sensor:
   # SCD4x CO2, Temperature, and Humidity Sensor
   - platform: scd4x
