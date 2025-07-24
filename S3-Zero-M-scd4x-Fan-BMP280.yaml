@@ -55,12 +55,14 @@ i2c:
 # -----------------------------------------------------------
 binary_sensor:
   - platform: gpio
-    pin: GPIO7  # Välj rätt GPIO beroende på din ESP-modell
+    pin:
+      number: GPIO7
+      mode: INPUT_PULLUP
     name: "Door sensor"
-    device_class: door  # Eller 'window', beroende på användning
+    device_class: door
     filters:
-      - delayed_on: 10ms
-      - delayed_off: 10ms
+      - delayed_on: 50ms
+      - delayed_off: 50ms
     internal: false
 
 sensor:
