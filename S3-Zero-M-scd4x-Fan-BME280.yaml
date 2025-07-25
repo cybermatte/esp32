@@ -43,10 +43,10 @@ bluetooth_proxy:
 # I2C Bus Configurations (Combined into one block)
 # -----------------------------------------------------------
 i2c:
-  # I2C Bus for BMP280
+  # I2C Bus for BME280
   - id: bus_b
-    sda: GPIO9 # Connect BMP280 SDA to GPIO9
-    scl: GPIO10 # Connect BMP280 SCL to GPIO10
+    sda: GPIO9 # Connect BME280 SDA to GPIO9
+    scl: GPIO10 # Connect BME280 SCL to GPIO10
     scan: true
 
   # I2C Bus for SCD4x (Original Pins)
