@@ -94,23 +94,21 @@ sensor:
       accuracy_decimals: 2
       unit_of_measurement: "%"
 
-    # BME280 Temperature, Pressure, and Humidity
+    # BME280 Temperature, and Humidity
   - platform: bme280_i2c 
     i2c_id: bus_b
     address: 0x76 # Assuming 0x76 for BME280
     update_interval: 60s
     temperature:
-      name: "Temperature Fan"
-      id: bme280_temperature # ID name kept for consistency
+      name: "Temperature (fan)"
+      id: bme280_temperature
       accuracy_decimals: 2
-      oversampling: 16x
-      filters:
-        - exponential_moving_average:
-            alpha: 0.1
-            send_first_at: 1
       unit_of_measurement: "°C"
+    pressure:
+      name: "Pressure (fan)"
+      id: bme280_pressure
     humidity:
-      name: "Humidity Fan"
+      name: "Humidity (fan)"
       id: bme280_humidity_sensor
       accuracy_decimals: 2
       unit_of_measurement: "%"
