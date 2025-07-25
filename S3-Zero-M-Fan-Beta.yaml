@@ -1,0 +1,53 @@
+bluetooth_proxy:
+  active: true
+
+button:
+  - platform: restart
+    name: "Restart device"
+  - platform: factory_reset
+    name: "Factory reset"
+    disabled_by_default: True
+
+i2c:
+  sda: GPIO1
+  scl: GPIO2
+  scan: true
+
+# Example configuration entry
+sensor:
+  - platform: scd4x
+    co2:
+      name: "CO2"
+    temperature:
+      name: "Temperature"
+      accuracy_decimals: 2
+    humidity:
+      name: "Humidity"
+      accuracy_decimals: 2
+    address: 0x62
+    update_interval: 60s
+
+  - platform: pulse_counter
+    pin: GPIO13
+    name: "PWM Fan 1 RPM"
+    id: fan1_pulse
+    unit_of_measurement: 'RPM'
+    filters:
+      - multiply: 0.5
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    update_interval: 3s
+
+output:
+  - platform: ledc
+    pin: GPIO12
+    frequency: 10000 Hz
+    id: fan1_pwm
+
+fan:
+  - platform: speed
+    output: fan1_pwm
+    name: "PWM Fan 1"
+    id: fan1
+    speed_count: 20
