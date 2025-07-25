@@ -94,14 +94,14 @@ sensor:
       accuracy_decimals: 2
       unit_of_measurement: "%"
 
-    # BMP280 Temperature, Pressure, and Humidity
-  - platform: bmp280_i2c # Changed from bmp280_i2c to BMP280_i2c
+    # BME280 Temperature, Pressure, and Humidity
+  - platform: bme280_i2c 
     i2c_id: bus_b
-    address: 0x77 # Assuming 0x76 for BMP280, please verify this (could be 0x77)
+    address: 0x76 # Assuming 0x76 for BME280
     update_interval: 60s
     temperature:
-      name: "Fan Temperature" 
-      id: bmp280_temperature # ID name kept for consistency
+      name: "Temperature Fan"
+      id: bme280_temperature # ID name kept for consistency
       accuracy_decimals: 2
       oversampling: 16x
       filters:
@@ -109,15 +109,11 @@ sensor:
             alpha: 0.1
             send_first_at: 1
       unit_of_measurement: "°C"
-    pressure:
-      name: "Pressure" 
-      id: BMP280_pressure
-      oversampling: 16x
-      filters:
-        - exponential_moving_average:
-            alpha: 0.1
-            send_first_at: 1
-      unit_of_measurement: "hPa"
+    humidity:
+      name: "Humidity Fan"
+      id: bme280_humidity_sensor
+      accuracy_decimals: 2
+      unit_of_measurement: "%"
 
   - platform: pulse_counter
     pin: GPIO6  # Replace with the tachometer signal pin
@@ -144,7 +140,6 @@ globals:
 fan:
   - platform: template
     name: "OD1238 Reversible Fan"
-    #https://orionfans.com/productFiles/datasheet/OD1238-REVERSIBLE.pdf
     id: reversible_fan
     #internal: true  # ✅ This hides the entity from Home Assistant
     speed_count: 100
