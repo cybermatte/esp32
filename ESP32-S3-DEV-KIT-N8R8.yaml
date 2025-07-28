@@ -1,9 +1,3 @@
-#Runs on S3-Zero-M
-#With a scd4x
-#controlling a OD1238 Reversible Fan https://orionfans.com/productFiles/datasheet/OD1238-REVERSIBLE.pdf
-#With a BME280
-#And a binary "door" sensor
-
 esp32:
   board: esp32-s3-devkitc-1
   framework:
@@ -23,103 +17,12 @@ esphome:
           speed: 49
       - lambda: ESP_LOGD("boot", "Fan set to 49% speed (STOPPED).");
 
-esp32_ble_tracker:
-  scan_parameters:
-    interval: 1100ms
-    window: 1100ms
-    active: true
-
 button:
   - platform: restart
     name: "Restart device"
   - platform: factory_reset
     name: "Factory reset"
     disabled_by_default: True
-
-bluetooth_proxy:
-  active: true
-
-# -----------------------------------------------------------
-# I2C Bus Configurations (Combined into one block)
-# -----------------------------------------------------------
-i2c:
-  # I2C Bus for BME280
-  - id: bus_b
-    sda: GPIO9 # Connect BME280 SDA to GPIO9
-    scl: GPIO10 # Connect BME280 SCL to GPIO10
-    scan: true
-
-  # I2C Bus for SCD4x (Original Pins)
-  - id: scd4x_i2c_bus
-    sda: GPIO1 # Connect SCD4x SDA to GPIO1
-    scl: GPIO2 # Connect SCD4x SCL to GPIO2
-    scan: true
-
-
-# -----------------------------------------------------------
-# Sensors
-# -----------------------------------------------------------
-binary_sensor:
-  - platform: gpio
-    pin:
-      number: GPIO7
-      mode: INPUT_PULLUP
-    name: "Door sensor"
-    device_class: door
-    filters:
-      - delayed_on: 50ms
-      - delayed_off: 50ms
-    internal: false
-
-sensor:
-  # SCD4x CO2, Temperature, and Humidity Sensor
-  - platform: scd4x
-    id: scd4x_platform
-    i2c_id: scd4x_i2c_bus
-    address: 0x62 # Default address for SCD4x
-    update_interval: 60s # The SCD4x will perform measurements every 60 seconds internally
-
-    co2:
-      name: "CO2"
-      id: co2_sensor_id
-      accuracy_decimals: 0
-    temperature:
-      name: "Temperature" 
-      id: temperature_sensor_id
-      accuracy_decimals: 2
-      unit_of_measurement: "°C"
-    humidity:
-      name: "Humidity" 
-      id: humidity_sensor_id
-      accuracy_decimals: 2
-      unit_of_measurement: "%"
-
-    # BME280 Temperature, and Humidity
-  - platform: bme280_i2c 
-    i2c_id: bus_b
-    address: 0x76 # Assuming 0x76 for BME280
-    update_interval: 60s
-    temperature:
-      name: "Temperature (fan)"
-      id: bme280_temperature
-      accuracy_decimals: 2
-      unit_of_measurement: "°C"
-    pressure:
-      name: "Pressure (fan)"
-      id: bme280_pressure
-    humidity:
-      name: "Humidity (fan)"
-      id: bme280_humidity_sensor
-      accuracy_decimals: 2
-      unit_of_measurement: "%"
-
-  - platform: pulse_counter
-    pin: GPIO6  # Replace with the tachometer signal pin
-    name: "Fan RPM"
-    unit_of_measurement: "RPM"
-    update_interval: 30s
-    filters:
-      - multiply: 0.5  # If your fan outputs 2 pulses per revolution
 
 # -----------------------------------------------------------
 # PWM Output for Fan Speed and Direction Control
