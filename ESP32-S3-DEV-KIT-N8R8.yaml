@@ -24,12 +24,21 @@ button:
     name: "Factory reset"
     disabled_by_default: True
 
+sensor:
+  - platform: pulse_counter
+    pin: GPIO14  # Replace with the tachometer signal pin
+    name: "Fan RPM"
+    unit_of_measurement: "RPM"
+    update_interval: 30s
+    filters:
+      - multiply: 0.5  # If your fan outputs 2 pulses per revolution
+
 # -----------------------------------------------------------
 # PWM Output for Fan Speed and Direction Control
 # -----------------------------------------------------------
 output:
   - platform: ledc
-    pin: GPIO5
+    pin: GPIO13
     id: fan_pwm_output
     frequency: 25000 Hz
 
